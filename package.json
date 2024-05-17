@@ -1,0 +1,17 @@
+{
+  "name": "clean-node",
+  "version": "1.0.0",
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "test`": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "description": "use for clean node_modules folder from your system",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sarowarhosen03/clean-node"
+  }
+}
