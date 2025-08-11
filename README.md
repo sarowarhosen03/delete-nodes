@@ -1,5 +1,7 @@
 # Clean Node - Efficient Node Modules Cleanup Tool
 
+![Clean Node Preview](preview.png)
+
 A high-performance Node.js utility designed to efficiently find and delete `node_modules` directories across your system, helping you reclaim valuable disk space with minimal system impact.
 
 ## 🎯 What is Clean Node?
