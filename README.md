@@ -16,7 +16,20 @@ Clean Node is a command-line tool that scans your file system for `node_modules`
 
 ## 🚀 Quick Start
 
-### Installation
+### Installation & Usage
+
+```bash
+# Quick start - scan and delete node_modules automatically
+npx delete-nodes -y
+
+# Or with confirmation prompt
+npx delete-nodes
+
+# Scan from a specific directory
+npx delete-nodes /path/to/your/projects -y
+```
+
+### Local Installation (Alternative)
 
 ```bash
 # Clone the repository
@@ -30,57 +43,73 @@ chmod +x index.js
 ./index.js
 ```
 
-### Basic Usage
-
-```bash
-# Scan and clean from your home directory
-node index.js
-
-# Scan from a specific directory
-node index.js /path/to/your/projects
-
-# Using npm scripts
-npm start
-```
-
 ## 📖 Detailed Usage Guide
 
 ### Command Line Options
 
 ```bash
-node index.js [directory_path]
+npx delete-nodes [directory_path] [options]
 ```
 
+**Arguments:**
 - **`directory_path`** (optional): The starting directory to scan. Defaults to your home directory (`~`)
+
+**Options:**
+- **`-y, --yes`**: Automatically confirm deletion without prompting
+- **`-h, --help`**: Show help information (coming soon)
+
+**Examples:**
+```bash
+# Scan home directory with confirmation
+npx delete-nodes
+
+# Scan home directory and auto-delete
+npx delete-nodes -y
+
+# Scan specific directory with confirmation
+npx delete-nodes ~/projects
+
+# Scan specific directory and auto-delete
+npx delete-nodes ~/projects -y
+```
 
 ### Usage Examples
 
 #### 1. Clean Your Entire Home Directory
 ```bash
 # This will scan your entire home directory for node_modules
-node index.js
+npx delete-nodes
+
+# Auto-delete without confirmation
+npx delete-nodes -y
 ```
 
 #### 2. Clean Specific Project Directories
 ```bash
 # Clean from your projects folder
-node index.js ~/projects
+npx delete-nodes ~/projects
 
 # Clean from a specific project
-node index.js ~/projects/my-app
+npx delete-nodes ~/projects/my-app
 
 # Clean from multiple locations (run multiple times)
-node index.js ~/work-projects
-node index.js ~/personal-projects
+npx delete-nodes ~/work-projects
+npx delete-nodes ~/personal-projects
+
+# Auto-delete from specific directories
+npx delete-nodes ~/projects -y
 ```
 
 #### 3. Test on a Small Directory First
 ```bash
 # Test the tool on a small directory before running on your entire system
-node index.js ~/test-directory
+npx delete-nodes ~/test-directory
+
+# Test with auto-delete
+npx delete-nodes ~/test-directory -y
 ```
 
-#### 4. Using npm Scripts
+#### 4. Using npm Scripts (Local Installation)
 ```bash
 # Standard usage
 npm start
@@ -145,7 +174,7 @@ const IGNORE_PATTERNS = [
 
 ## 📊 Output Examples
 
-### Successful Scan and Deletion
+### Successful Scan and Deletion (with confirmation)
 ```
 Scanning for node_modules directories starting from: /home/user
 This may take a while for large directory trees...
@@ -162,6 +191,31 @@ Directories to be deleted:
 ...
 
 Do you want to delete these node_modules directories? (y/n): y
+
+Starting deletion process...
+Deleting 15/15: old-project/node_modules
+
+✅ Successfully deleted 15 node_modules directories
+📦 Freed approximately 2.34 GB of disk space
+⏱️  Deletion completed in 3200ms
+```
+
+### Auto-Confirmation Mode (-y flag)
+```
+Scanning for node_modules directories starting from: /home/user
+⚠️  Auto-confirmation enabled (-y flag)
+This may take a while for large directory trees...
+
+Scan completed in 1250ms
+Found 15 node_modules directories
+
+Directories to be deleted:
+1. /home/user/project1/node_modules
+2. /home/user/project2/node_modules
+3. /home/user/old-project/node_modules
+...
+
+✅ Auto-confirming deletion (use without -y flag for manual confirmation)
 
 Starting deletion process...
 Deleting 15/15: old-project/node_modules

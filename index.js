@@ -112,10 +112,25 @@ function formatBytes(bytes) {
 
 async function main() {
     const startTime = Date.now();
-    const startDir = process.argv[2] || os.homedir();
-    console.log(startDir);
+    
+    // Parse command line arguments
+    const args = process.argv.slice(2);
+    let startDir = os.homedir();
+    let autoConfirm = false;
+    
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+        if (arg === '-y' || arg === '--yes') {
+            autoConfirm = true;
+        } else if (!arg.startsWith('-')) {
+            startDir = arg;
+        }
+    }
     
     console.log(`Scanning for node_modules directories starting from: ${startDir}`);
+    if (autoConfirm) {
+        console.log('⚠️  Auto-confirmation enabled (-y flag)');
+    }
     console.log('This may take a while for large directory trees...\n');
     
     try {
@@ -137,19 +152,27 @@ async function main() {
             console.log(`${i + 1}. ${p}`);
         });
         
-        // Ask for confirmation
-        const rl = readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        });
+        let shouldDelete = false;
         
-        const answer = await new Promise((resolve) => {
-            rl.question('\nDo you want to delete these node_modules directories? (y/n): ', resolve);
-        });
+        if (autoConfirm) {
+            console.log('\n✅ Auto-confirming deletion (use without -y flag for manual confirmation)');
+            shouldDelete = true;
+        } else {
+            // Ask for confirmation
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            
+            const answer = await new Promise((resolve) => {
+                rl.question('\nDo you want to delete these node_modules directories? (y/n): ', resolve);
+            });
+            
+            rl.close();
+            shouldDelete = answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+        }
         
-        rl.close();
-        
-        if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
+        if (shouldDelete) {
             const deleteStartTime = Date.now();
             const { deletedCount, totalSize } = await deleteNodeModules(nodeModulesPaths);
             const deleteTime = Date.now() - deleteStartTime;
