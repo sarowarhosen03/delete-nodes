@@ -1,67 +1,184 @@
 #!/usr/bin/env node
-const fs = require('fs');
+const fs = require('fs').promises;
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
 
-function scanDir(prevPath = os.homedir()) {
-    const targetDir = path.resolve(prevPath);
-    fs.readdirSync(targetDir).filter(dir => !dir.startsWith(".")).filter(dir => !dir.startsWith("Desktop")).filter(dir => !dir.startsWith("Documents")).filter(dir => !dir.startsWith("Downloads")).filter(dir => !dir.startsWith("Music")).filter(dir => !dir.startsWith("Pictures")).filter(dir => !dir.startsWith("Public")).filter(dir => !dir.startsWith("Templates")).filter(dir => {
-        try {
-            return fs.statSync(`${targetDir}/${dir}`).isDirectory();
-        } catch (error) {
-            return false;
-        }
-    }).forEach(dir => {
-        // console.log(dir);
-        mapdir(dir, `${targetDir}/${dir}`);
-    })
+// Directories to skip (common system directories)
+const SKIP_DIRS = new Set([
+    'Desktop', 'Documents', 'Downloads', 'Music', 
+    'Pictures', 'Public', 'Templates', 'Videos'
+]);
 
-}
+// Directories to ignore (hidden and system)
+const IGNORE_PATTERNS = [
+    /^\./, // Hidden files/directories
+    // /^node_modules$/, // Already found node_modules
+    /^\.git$/, // Git directory
+    /^\.vscode$/, // VS Code settings
+    /^\.idea$/, // IntelliJ settings
+];
 
-const toDelete = []
-function mapdir(dirname, prevPath) {
-    // console.log(dirname, prevPath);
-    if (dirname !== 'node_modules') {
-        scanDir(prevPath);
-    } else {
-        const dletePath = path.resolve(prevPath);
-        toDelete.push(dletePath);
-
+async function scanDirectory(dirPath, depth = 0) {
+    const nodeModulesPaths = [];
+    const maxDepth = 10; // Prevent infinite recursion
+    
+    // Don't scan inside node_modules directories
+    if (path.basename(dirPath) === 'node_modules') {
+        return nodeModulesPaths;
+    }
+    
+    if (depth > maxDepth) {
+        return nodeModulesPaths;
     }
 
+    try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+            const fullPath = path.join(dirPath, entry.name);
+            
+            // Skip if it matches ignore patterns
+            if (IGNORE_PATTERNS.some(pattern => pattern.test(entry.name))) {
+                continue;
+            }
+            
+            // Skip common system directories
+            if (SKIP_DIRS.has(entry.name)) {
+                continue;
+            }
+            
+            if (entry.isDirectory()) {
+                if (entry.name === 'node_modules') {
+                    // Found a node_modules directory - add it and don't scan inside it
+                    nodeModulesPaths.push(fullPath);
+                } else {
+                    // Recursively scan subdirectories (but not inside node_modules)
+                    const subPaths = await scanDirectory(fullPath, depth + 1);
+                    nodeModulesPaths.push(...subPaths);
+                }
+            }
+        }
+    } catch (error) {
+        // Silently skip directories we can't access
+        if (error.code !== 'EACCES' && error.code !== 'ENOENT') {
+            console.warn(`Warning: Could not scan ${dirPath}: ${error.message}`);
+        }
+    }
+    
+    return nodeModulesPaths;
 }
-scanDir();
 
+async function deleteNodeModules(paths) {
+    let deletedCount = 0;
+    let totalSize = 0;
+    
+    console.log('\nStarting deletion process...');
+    
+    for (let i = 0; i < paths.length; i++) {
+        const nodeModulesPath = paths[i];
+        
+        try {
+            // Show progress
+            process.stdout.write(`\rDeleting ${i + 1}/${paths.length}: ${path.basename(path.dirname(nodeModulesPath))}/node_modules`);
+            
+            // Get directory size before deletion (optional)
+            try {
+                const stats = await fs.stat(nodeModulesPath);
+                totalSize += stats.size;
+            } catch (error) {
+                // Ignore size calculation errors
+            }
+            
+            await fs.rm(nodeModulesPath, { recursive: true, force: true });
+            deletedCount++;
+            
+        } catch (error) {
+            console.warn(`\nWarning: Could not delete ${nodeModulesPath}: ${error.message}`);
+        }
+    }
+    
+    console.log('\n'); // Clear progress line
+    return { deletedCount, totalSize };
+}
 
-//ask confirmation y/n form user using nodejs readline
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
 
-const size = toDelete.length;
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
+async function main() {
+    const startTime = Date.now();
+    const startDir = process.argv[2] || os.homedir();
+    console.log(startDir);
+    
+    console.log(`Scanning for node_modules directories starting from: ${startDir}`);
+    console.log('This may take a while for large directory trees...\n');
+    
+    try {
+        // Scan for node_modules directories
+        const nodeModulesPaths = await scanDirectory(startDir);
+        
+        const scanTime = Date.now() - startTime;
+        console.log(`\nScan completed in ${scanTime}ms`);
+        console.log(`Found ${nodeModulesPaths.length} node_modules directories`);
+        
+        if (nodeModulesPaths.length === 0) {
+            console.log('No node_modules directories found.');
+            return;
+        }
+        
+        // Show what will be deleted
+        console.log('\nDirectories to be deleted:');
+        nodeModulesPaths.forEach((p, i) => {
+            console.log(`${i + 1}. ${p}`);
+        });
+        
+        // Ask for confirmation
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
+        
+        const answer = await new Promise((resolve) => {
+            rl.question('\nDo you want to delete these node_modules directories? (y/n): ', resolve);
+        });
+        
+        rl.close();
+        
+        if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
+            const deleteStartTime = Date.now();
+            const { deletedCount, totalSize } = await deleteNodeModules(nodeModulesPaths);
+            const deleteTime = Date.now() - deleteStartTime;
+            
+            console.log(`\n✅ Successfully deleted ${deletedCount} node_modules directories`);
+            if (totalSize > 0) {
+                console.log(`📦 Freed approximately ${formatBytes(totalSize)} of disk space`);
+            }
+            console.log(`⏱️  Deletion completed in ${deleteTime}ms`);
+        } else {
+            console.log('❌ Operation cancelled.');
+        }
+        
+    } catch (error) {
+        console.error('❌ An error occurred:', error.message);
+        process.exit(1);
+    }
+}
+
+// Handle process termination gracefully
+process.on('SIGINT', () => {
+    console.log('\n\n⚠️  Operation interrupted by user');
+    process.exit(0);
 });
 
-console.log(...toDelete);
-console.log('Scanning for node_modules directories...');
-
-if (size > 0) {
-    console.log(`Found ${size} modules to delete.`);
-
-    rl.question('Do you want to delete the modules? (y/n): ', (answer) => {
-        if (answer.toLowerCase() === 'y') {
-            // Delete the modules
-            toDelete.forEach((filePath) => {
-                fs.rmSync(filePath, { recursive: true });
-            });
-            console.log(`Deleted ${size} modules.`);
-        } else {
-            console.log('Aborted.');
-        }
-
-        rl.close();
+// Run the main function
+if (require.main === module) {
+    main().catch(error => {
+        console.error('❌ Fatal error:', error);
+        process.exit(1);
     });
-} else {
-    console.log('No node_modules found.');
-    rl.close();
 }

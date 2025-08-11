@@ -4,14 +4,24 @@
   "main": "index.js",
   "bin": "index.js",
   "scripts": {
-    "test`": "node index.js"
+    "start": "node index.js",
+    "test": "node index.js",
+    "dev": "node index.js ~/test-directory"
   },
-  "keywords": [],
+  "keywords": [
+    "node_modules",
+    "cleanup",
+    "disk-space",
+    "utility"
+  ],
   "author": "",
   "license": "MIT",
-  "description": "use for clean node_modules folder from your system",
+  "description": "Efficiently find and delete node_modules directories to free up disk space",
   "repository": {
     "type": "git",
     "url": "https://github.com/sarowarhosen03/clean-node"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
 }
